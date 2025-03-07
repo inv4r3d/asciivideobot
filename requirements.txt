@@ -1,1 +1,3 @@
 pyTelegramBotAPI
+opencv-python
+Pillow
