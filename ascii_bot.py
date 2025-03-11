@@ -11,7 +11,6 @@ TOKEN = '7034087598:AAHJosYC4uU5oSjT4c28xqn3DVeTNU2oFao'
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# Расширенный набор символов с буквами и цифрами
 ASCII_CHARS = "@%#&8BWMm0OZ$QUXYIlov1x[]{}()+=|;:,. "
 
 file_storage = {}
@@ -24,8 +23,9 @@ def frame_to_ascii(frame, width=50, color=False):
         for i in range(height):
             row = []
             for j in range(width):
-                pixel = small_frame[i, j]
-                brightness = float(sum(pixel)) / 3 / 255.0  # Исправлено переполнение
+                pixel = small_frame[i, j].astype(float)  # Приведение к float
+                pixel = np.clip(pixel, 0, 255)  # Ограничение значений
+                brightness = sum(pixel) / 3 / 255.0
                 index = int(brightness * (len(ASCII_CHARS) - 1))
                 row.append((ASCII_CHARS[index], tuple(pixel)))
             ascii_frame.append(row)
@@ -88,10 +88,10 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    width = 100 if symbol_size == "small" else 50  # Улучшенное разрешение
+    width = 100 if symbol_size == "small" else 50
     height = int((orig_height / orig_width) * width)
     
-    font_size = 16 if symbol_size == "small" else 32  # Увеличенный шрифт
+    font_size = 16 if symbol_size == "small" else 32
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -102,7 +102,7 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     char_height = ascent + descent
     
     base_width = width * char_width
-    out_width = base_width * 4  # Улучшенное выходное разрешение
+    out_width = base_width * 4
     out_height = int(out_width * (orig_height / orig_width))
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -135,10 +135,10 @@ def process_photo(image, color=False, symbol_size="small"):
     frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     orig_width, orig_height = image.size
     
-    width = 100 if symbol_size == "small" else 50  # Улучшенное разрешение
+    width = 100 if symbol_size == "small" else 50
     height = int((orig_height / orig_width) * width)
     
-    font_size = 16 if symbol_size == "small" else 32  # Увеличенный шрифт
+    font_size = 16 if symbol_size == "small" else 32
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -232,7 +232,7 @@ def handle_choice(call):
                                     text=f"Обрабатываю {content_type}, подожди немного...")
                 
                 output_path = "output_ascii.mp4"
-                success, error = video_to_ascii(input_path, output_path, color, symbol_size)  # Исправлена синтаксическая ошибка
+                success, error = video_to_ascii(input_path, output_path, color, symbol_size)
                 
                 if success:
                     with open(output_path, 'rb') as video:
