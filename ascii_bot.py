@@ -85,7 +85,7 @@ def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
         return img
 
 # Функция для создания видео из ASCII с сохранением пропорций
-def'après_to_ascii(input_path, output_path, color=False, symbol_size="small", max_duration=10):
+def video_to_ascii(input_path, output_path, color=False, symbol_size="small", max_duration=10):
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
         return False, "Не удалось открыть файл"
