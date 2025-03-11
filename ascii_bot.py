@@ -1,15 +1,16 @@
 import telebot
+from flask import Flask, request
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import os
 import io
-import sys
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Вставьте ваш токен от BotFather
 TOKEN = '7034087598:AAHJosYC4uU5oSjT4c28xqn3DVeTNU2oFao'
 bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
 
 # Символы для ASCII-арта (от темного к светлому)
 ASCII_CHARS = "@%#*+=-:. "
@@ -41,7 +42,6 @@ def frame_to_ascii(frame, width=50, color=False):
             row = []
             for j in range(width):
                 brightness = normalized[i, j]  # Яркость от 0 (черный) до 1 (белый)
-                # Без инверсии: яркость > 0.5 -> белый символ, иначе черный
                 pixel_color = (255, 255, 255) if brightness > 0.5 else (0, 0, 0)
                 index = int(brightness * (len(ASCII_CHARS) - 1))
                 row.append((ASCII_CHARS[index], pixel_color))
@@ -73,7 +73,6 @@ def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
                 d.text((j * char_width, i * char_height), char, font=font, fill=rgb_color)
         return img
     else:
-        # Монохромный режим: два цвета (черный/белый) на белом фоне
         height = len(ascii_data)
         img_width = width * char_width
         img_height = height * char_height
@@ -86,7 +85,7 @@ def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
         return img
 
 # Функция для создания видео из ASCII с сохранением пропорций
-def video_to_ascii(input_path, output_path, color=False, symbol_size="small", max_duration=10):
+def'après_to_ascii(input_path, output_path, color=False, symbol_size="small", max_duration=10):
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
         return False, "Не удалось открыть файл"
@@ -180,26 +179,23 @@ def get_size_keyboard(message_id, content_type, color):
     )
     return keyboard
 
-# Обработчик команды /start
+# Обработчики сообщений
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.reply_to(message, "Привет! Отправь мне фото, видео или GIF для обработки в ASCII.")
 
-# Обработчик видео
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
     file_id = message.video.file_id
     file_storage[message.message_id] = {"file_id": file_id}
     bot.reply_to(message, "Выбери стиль ASCII:", reply_markup=get_style_keyboard(message.message_id, "video"))
 
-# Обработчик GIF
 @bot.message_handler(content_types=['animation'])
 def handle_gif(message):
     file_id = message.animation.file_id
     file_storage[message.message_id] = {"file_id": file_id}
     bot.reply_to(message, "Выбери стиль ASCII:", reply_markup=get_style_keyboard(message.message_id, "animation"))
 
-# Обработчик фото
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     file_id = message.photo[-1].file_id
@@ -279,21 +275,19 @@ def handle_choice(call):
     except Exception as e:
         bot.send_message(call.message.chat.id, f"Произошла ошибка: {str(e)}")
 
-# Основная функция для запуска бота
-def main():
-    try:
-        bot.polling(non_stop=True)
-    except KeyboardInterrupt:
-        print("Останавливаю бота...")
-        bot.stop_polling()
-        bot.close()
-        print("Бот успешно остановлен")
-        sys.exit(0)
-    except Exception as e:
-        print(f"Ошибка в polling: {e}")
-        bot.stop_polling()
-        bot.close()
-        sys.exit(1)
+# Webhook маршруты для Flask
+@app.route('/' + TOKEN, methods=['POST'])
+def get_message():
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return 'OK', 200
+
+@app.route('/')
+def webhook():
+    bot.remove_webhook()
+    bot.set_webhook(url='https://asciivideobot.onrender.com/' + TOKEN)
+    return "Webhook set", 200
 
 if __name__ == "__main__":
-    main()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
