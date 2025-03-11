@@ -23,8 +23,8 @@ def frame_to_ascii(frame, width=50, color=False):
         for i in range(height):
             row = []
             for j in range(width):
-                pixel = small_frame[i, j].astype(float)  # Приведение к float
-                pixel = np.clip(pixel, 0, 255)  # Ограничение значений
+                pixel = small_frame[i, j].astype(float)
+                pixel = np.clip(pixel, 0, 255)
                 brightness = sum(pixel) / 3 / 255.0
                 index = int(brightness * (len(ASCII_CHARS) - 1))
                 row.append((ASCII_CHARS[index], tuple(pixel)))
@@ -79,7 +79,7 @@ def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
                 d.text((j * char_width, i * char_height), char, font=font, fill=rgb_color)
         return img
 
-def video_to_ascii(input_path, output_path, color=False, symbol_size="small", max_duration=10):
+def video_to_ascii(input_path, output_path, color=False, symbol_size="small", max_duration=5):
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
         return False, "Не удалось открыть файл"
@@ -88,7 +88,7 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    width = 100 if symbol_size == "small" else 50
+    width = 80 if symbol_size == "small" else 40  # Уменьшено с 100/50
     height = int((orig_height / orig_width) * width)
     
     font_size = 16 if symbol_size == "small" else 32
@@ -102,7 +102,7 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     char_height = ascent + descent
     
     base_width = width * char_width
-    out_width = base_width * 4
+    out_width = base_width * 3  # Уменьшено с * 4
     out_height = int(out_width * (orig_height / orig_width))
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -110,17 +110,20 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     
     frame_count = 0
     max_frames = int(fps * max_duration)
+    frame_skip = 0  # Счётчик для пропуска кадров
     
     while cap.isOpened() and frame_count < max_frames:
         ret, frame = cap.read()
         if not ret:
             break
-        ascii_data = frame_to_ascii(frame, width, color)
-        img = ascii_to_image(ascii_data, width, color, symbol_size)
-        img_resized = img.resize((out_width, out_height), Image.Resampling.LANCZOS)
-        frame_out = np.array(img_resized)
-        out.write(frame_out)
-        frame_count += 1
+        frame_skip += 1
+        if frame_skip % 2 == 0:  # Обрабатываем каждый второй кадр
+            ascii_data = frame_to_ascii(frame, width, color)
+            img = ascii_to_image(ascii_data, width, color, symbol_size)
+            img_resized = img.resize((out_width, out_height), Image.Resampling.LANCZOS)
+            frame_out = np.array(img_resized)
+            out.write(frame_out)
+            frame_count += 1
     
     cap.release()
     out.release()
