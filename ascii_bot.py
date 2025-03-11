@@ -25,7 +25,7 @@ def frame_to_ascii(frame, width=50, color=False):
             row = []
             for j in range(width):
                 pixel = small_frame[i, j]
-                brightness = sum(pixel) / 3 / 255.0
+                brightness = float(sum(pixel)) / 3 / 255.0  # Исправлено переполнение
                 index = int(brightness * (len(ASCII_CHARS) - 1))
                 row.append((ASCII_CHARS[index], tuple(pixel)))
             ascii_frame.append(row)
@@ -45,7 +45,7 @@ def frame_to_ascii(frame, width=50, color=False):
         return ascii_frame
 
 def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
-    font_size = 16 if symbol_size == "small" else 32  # Увеличили шрифт
+    font_size = 16 if symbol_size == "small" else 32
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -88,10 +88,10 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    width = 100 if symbol_size == "small" else 50  # Увеличили разрешение
+    width = 100 if symbol_size == "small" else 50  # Улучшенное разрешение
     height = int((orig_height / orig_width) * width)
     
-    font_size = 16 if symbol_size == "small" else 32  # Увеличили шрифт
+    font_size = 16 if symbol_size == "small" else 32  # Увеличенный шрифт
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -102,7 +102,7 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     char_height = ascent + descent
     
     base_width = width * char_width
-    out_width = base_width * 4  # Увеличиваем выходное разрешение
+    out_width = base_width * 4  # Улучшенное выходное разрешение
     out_height = int(out_width * (orig_height / orig_width))
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -135,10 +135,10 @@ def process_photo(image, color=False, symbol_size="small"):
     frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     orig_width, orig_height = image.size
     
-    width = 100 if symbol_size == "small" else 50  # Увеличили разрешение и для фото
+    width = 100 if symbol_size == "small" else 50  # Улучшенное разрешение
     height = int((orig_height / orig_width) * width)
     
-    font_size = 16 if symbol_size == "small" else 32  # Увеличили шрифт
+    font_size = 16 if symbol_size == "small" else 32  # Увеличенный шрифт
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -232,7 +232,7 @@ def handle_choice(call):
                                     text=f"Обрабатываю {content_type}, подожди немного...")
                 
                 output_path = "output_ascii.mp4"
-                success, error = video_to_ascii(input_path, output_path, color, symbol_size)
+                success, error Kristianvideo_to_ascii(input_path, output_path, color, symbol_size)
                 
                 if success:
                     with open(output_path, 'rb') as video:
