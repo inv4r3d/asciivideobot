@@ -7,18 +7,15 @@ import os
 import io
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Вставьте ваш токен от BotFather
 TOKEN = '7034087598:AAHJosYC4uU5oSjT4c28xqn3DVeTNU2oFao'
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# Символы для ASCII-арта (от темного к светлому)
-ASCII_CHARS = "@%#*+=-:. "
+# Расширенный набор символов с буквами и цифрами
+ASCII_CHARS = "@%#&8BWMm0OZ$QUXYIlov1x[]{}()+=|;:,. "
 
-# Словарь для хранения file_id и настроек
 file_storage = {}
 
-# Функция для преобразования кадра в ASCII (цветной или монохромный)
 def frame_to_ascii(frame, width=50, color=False):
     height = int((frame.shape[0] / frame.shape[1]) * width)
     small_frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
@@ -27,30 +24,28 @@ def frame_to_ascii(frame, width=50, color=False):
         for i in range(height):
             row = []
             for j in range(width):
-                pixel = small_frame[i, j]  # BGR формат
+                pixel = small_frame[i, j]
                 brightness = sum(pixel) / 3 / 255.0
                 index = int(brightness * (len(ASCII_CHARS) - 1))
                 row.append((ASCII_CHARS[index], tuple(pixel)))
             ascii_frame.append(row)
         return ascii_frame
     else:
-        # Монохромный режим: только два цвета (черный и белый)
         ascii_frame = []
-        gray = cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY)  # Преобразуем в градации серого
-        normalized = gray / 255.0  # Нормализуем от 0 до 1
+        gray = cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY)
+        normalized = gray / 255.0
         for i in range(height):
             row = []
             for j in range(width):
-                brightness = normalized[i, j]  # Яркость от 0 (черный) до 1 (белый)
+                brightness = normalized[i, j]
                 pixel_color = (255, 255, 255) if brightness > 0.5 else (0, 0, 0)
                 index = int(brightness * (len(ASCII_CHARS) - 1))
                 row.append((ASCII_CHARS[index], pixel_color))
             ascii_frame.append(row)
         return ascii_frame
 
-# Функция для создания изображения из ASCII
 def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
-    font_size = 12 if symbol_size == "small" else 24
+    font_size = 16 if symbol_size == "small" else 32  # Увеличили шрифт
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -65,7 +60,7 @@ def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
         height = len(ascii_data)
         img_width = width * char_width
         img_height = height * char_height
-        img = Image.new('RGB', (img_width, img_height), color=(0, 0, 0))  # Черный фон для "цветного"
+        img = Image.new('RGB', (img_width, img_height), color=(0, 0, 0))
         d = ImageDraw.Draw(img)
         for i, row in enumerate(ascii_data):
             for j, (char, pixel_color) in enumerate(row):
@@ -76,7 +71,7 @@ def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
         height = len(ascii_data)
         img_width = width * char_width
         img_height = height * char_height
-        img = Image.new('RGB', (img_width, img_height), color=(255, 255, 255))  # Белый фон
+        img = Image.new('RGB', (img_width, img_height), color=(255, 255, 255))
         d = ImageDraw.Draw(img)
         for i, row in enumerate(ascii_data):
             for j, (char, pixel_color) in enumerate(row):
@@ -84,7 +79,6 @@ def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
                 d.text((j * char_width, i * char_height), char, font=font, fill=rgb_color)
         return img
 
-# Функция для создания видео из ASCII с сохранением пропорций
 def video_to_ascii(input_path, output_path, color=False, symbol_size="small", max_duration=10):
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
@@ -94,10 +88,10 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    width = 50 if symbol_size == "small" else 25
+    width = 100 if symbol_size == "small" else 50  # Увеличили разрешение
     height = int((orig_height / orig_width) * width)
     
-    font_size = 12 if symbol_size == "small" else 24
+    font_size = 16 if symbol_size == "small" else 32  # Увеличили шрифт
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -108,7 +102,7 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     char_height = ascent + descent
     
     base_width = width * char_width
-    out_width = base_width
+    out_width = base_width * 4  # Увеличиваем выходное разрешение
     out_height = int(out_width * (orig_height / orig_width))
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -137,15 +131,14 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
         return False, "Файл слишком большой (>50 МБ)"
     return True, None
 
-# Функция для обработки фото с сохранением исходного размера
 def process_photo(image, color=False, symbol_size="small"):
     frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     orig_width, orig_height = image.size
     
-    width = 50 if symbol_size == "small" else 25
+    width = 100 if symbol_size == "small" else 50  # Увеличили разрешение и для фото
     height = int((orig_height / orig_width) * width)
     
-    font_size = 12 if symbol_size == "small" else 24
+    font_size = 16 if symbol_size == "small" else 32  # Увеличили шрифт
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -161,7 +154,6 @@ def process_photo(image, color=False, symbol_size="small"):
     
     return ascii_img_resized
 
-# Создание клавиатуры для выбора стиля
 def get_style_keyboard(message_id, content_type):
     keyboard = InlineKeyboardMarkup()
     keyboard.row(
@@ -170,7 +162,6 @@ def get_style_keyboard(message_id, content_type):
     )
     return keyboard
 
-# Создание клавиатуры для выбора размера символов
 def get_size_keyboard(message_id, content_type, color):
     keyboard = InlineKeyboardMarkup()
     keyboard.row(
@@ -179,7 +170,6 @@ def get_size_keyboard(message_id, content_type, color):
     )
     return keyboard
 
-# Обработчики сообщений
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.reply_to(message, "Привет! Отправь мне фото, видео или GIF для обработки в ASCII.")
@@ -202,12 +192,11 @@ def handle_photo(message):
     file_storage[message.message_id] = {"file_id": file_id}
     bot.reply_to(message, "Выбери стиль ASCII:", reply_markup=get_style_keyboard(message.message_id, "photo"))
 
-# Обработчик выбора стиля и размера
 @bot.callback_query_handler(func=lambda call: True)
 def handle_choice(call):
     try:
         data = call.data.split('_')
-        if len(data) == 3:  # Выбор стиля
+        if len(data) == 3:
             style, content_type, message_id = data
             message_id = int(message_id)
             file_data = file_storage.get(message_id)
@@ -220,7 +209,7 @@ def handle_choice(call):
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, 
                                 text="Выбери размер символов:", reply_markup=get_size_keyboard(message_id, content_type, color))
         
-        elif len(data) == 4:  # Выбор размера
+        elif len(data) == 4:
             symbol_size, content_type, message_id, color = data
             message_id = int(message_id)
             file_data = file_storage.get(message_id)
@@ -275,7 +264,6 @@ def handle_choice(call):
     except Exception as e:
         bot.send_message(call.message.chat.id, f"Произошла ошибка: {str(e)}")
 
-# Webhook маршруты для Flask
 @app.route('/' + TOKEN, methods=['POST'])
 def get_message():
     json_string = request.get_data().decode('utf-8')
