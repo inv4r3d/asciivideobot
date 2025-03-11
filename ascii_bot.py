@@ -232,7 +232,7 @@ def handle_choice(call):
                                     text=f"Обрабатываю {content_type}, подожди немного...")
                 
                 output_path = "output_ascii.mp4"
-                success, error Kristianvideo_to_ascii(input_path, output_path, color, symbol_size)
+                success, error = video_to_ascii(input_path, output_path, color, symbol_size)  # Исправлена синтаксическая ошибка
                 
                 if success:
                     with open(output_path, 'rb') as video:
