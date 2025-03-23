@@ -126,7 +126,8 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
             ascii_data = frame_to_ascii(frame, width, color)
             img = ascii_to_image(ascii_data, width, color, symbol_size)
             img_resized = img.resize((out_width, out_height), Image.Resampling.BILINEAR)
-            frame_out = np.array(img_resized)
+            frame_out = cv2.cvtColor(np.array(img_resized), cv2.COLOR_RGB2BGR)  # RGB в BGR
+            logger.info(f"Frame {frame_count}: Writing BGR frame")
             out.write(frame_out)
             frame_count += 1
     
