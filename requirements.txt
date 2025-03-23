@@ -1,5 +1,6 @@
-pyTelegramBotAPI
+telebot
+flask
 opencv-python
 numpy
-Pillow
-flask
+pillow
+tenacity
