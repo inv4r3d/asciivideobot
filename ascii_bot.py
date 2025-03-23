@@ -5,20 +5,25 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import os
 import io
+import logging
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 
 TOKEN = '7034087598:AAHJosYC4uU5oSjT4c28xqn3DVeTNU2oFao'
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-ASCII_CHARS = "@%#&8BWMm0OZ$QUXYIlov1x[]{}()+=|;:,. "
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+ASCII_CHARS = "@%#&8BWMm0OZ$QUXYIlov1x[]{}()+=|;:,. "
 file_storage = {}
 
 def frame_to_ascii(frame, width=50, color=False):
     height = int((frame.shape[0] / frame.shape[1]) * width)
     small_frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
     if color:
+        small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)  # BGR в RGB
         ascii_frame = []
         for i in range(height):
             row = []
@@ -45,7 +50,7 @@ def frame_to_ascii(frame, width=50, color=False):
         return ascii_frame
 
 def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
-    font_size = 16 if symbol_size == "small" else 32
+    font_size = 12 if symbol_size == "small" else 24
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -64,7 +69,7 @@ def ascii_to_image(ascii_data, width=50, color=False, symbol_size="small"):
         d = ImageDraw.Draw(img)
         for i, row in enumerate(ascii_data):
             for j, (char, pixel_color) in enumerate(row):
-                rgb_color = (int(pixel_color[2]), int(pixel_color[1]), int(pixel_color[0]))
+                rgb_color = (int(pixel_color[0]), int(pixel_color[1]), int(pixel_color[2]))
                 d.text((j * char_width, i * char_height), char, font=font, fill=rgb_color)
         return img
     else:
@@ -88,10 +93,10 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    width = 80 if symbol_size == "small" else 40  # Уменьшено с 100/50
+    width = 60 if symbol_size == "small" else 30
     height = int((orig_height / orig_width) * width)
     
-    font_size = 16 if symbol_size == "small" else 32
+    font_size = 12 if symbol_size == "small" else 24
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -102,7 +107,7 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     char_height = ascent + descent
     
     base_width = width * char_width
-    out_width = base_width * 3  # Уменьшено с * 4
+    out_width = base_width * 2
     out_height = int(out_width * (orig_height / orig_width))
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -110,17 +115,17 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     
     frame_count = 0
     max_frames = int(fps * max_duration)
-    frame_skip = 0  # Счётчик для пропуска кадров
+    frame_skip = 0
     
     while cap.isOpened() and frame_count < max_frames:
         ret, frame = cap.read()
         if not ret:
             break
         frame_skip += 1
-        if frame_skip % 2 == 0:  # Обрабатываем каждый второй кадр
+        if frame_skip % 3 == 0:
             ascii_data = frame_to_ascii(frame, width, color)
             img = ascii_to_image(ascii_data, width, color, symbol_size)
-            img_resized = img.resize((out_width, out_height), Image.Resampling.LANCZOS)
+            img_resized = img.resize((out_width, out_height), Image.Resampling.BILINEAR)
             frame_out = np.array(img_resized)
             out.write(frame_out)
             frame_count += 1
@@ -128,7 +133,10 @@ def video_to_ascii(input_path, output_path, color=False, symbol_size="small", ma
     cap.release()
     out.release()
     
+    if not os.path.exists(output_path):
+        return False, "Файл вывода не создан"
     file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    logger.info(f"Video size: {file_size_mb:.2f} MB")
     if file_size_mb > 50:
         os.remove(output_path)
         return False, "Файл слишком большой (>50 МБ)"
@@ -138,10 +146,10 @@ def process_photo(image, color=False, symbol_size="small"):
     frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     orig_width, orig_height = image.size
     
-    width = 100 if symbol_size == "small" else 50
+    width = 60 if symbol_size == "small" else 30
     height = int((orig_height / orig_width) * width)
     
-    font_size = 16 if symbol_size == "small" else 32
+    font_size = 12 if symbol_size == "small" else 24
     try:
         font = ImageFont.truetype("cour.ttf", font_size)
     except:
@@ -153,7 +161,7 @@ def process_photo(image, color=False, symbol_size="small"):
     
     ascii_data = frame_to_ascii(frame, width, color)
     ascii_img = ascii_to_image(ascii_data, width, color, symbol_size)
-    ascii_img_resized = ascii_img.resize((orig_width, orig_height), Image.Resampling.LANCZOS)
+    ascii_img_resized = ascii_img.resize((orig_width, orig_height), Image.Resampling.BILINEAR)
     
     return ascii_img_resized
 
@@ -175,7 +183,18 @@ def get_size_keyboard(message_id, content_type, color):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "Привет! Отправь мне фото, видео или GIF для обработки в ASCII.")
+    welcome_text = (
+        "Привет! Я преобразую фото, видео и GIF в ASCII-арт.\n\n"
+        "Как использовать:\n"
+        "1. Отправь мне медиа.\n"
+        "2. Выбери стиль (цветной или монохромный).\n"
+        "3. Выбери размер символов (мелкие или крупные).\n\n"
+        "Ограничения:\n"
+        "- Видео: до 5 секунд.\n"
+        "- Максимальный размер файла: 50 МБ.\n"
+        "- Возможны задержки из-за бесплатного хостинга."
+    )
+    bot.reply_to(message, welcome_text)
 
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
@@ -194,6 +213,11 @@ def handle_photo(message):
     file_id = message.photo[-1].file_id
     file_storage[message.message_id] = {"file_id": file_id}
     bot.reply_to(message, "Выбери стиль ASCII:", reply_markup=get_style_keyboard(message.message_id, "photo"))
+
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(2), retry=retry_if_exception_type(Exception))
+def send_video_with_retry(chat_id, video):
+    logger.info(f"Sending video to chat_id={chat_id}")
+    bot.send_video(chat_id, video)
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_choice(call):
@@ -238,10 +262,17 @@ def handle_choice(call):
                 success, error = video_to_ascii(input_path, output_path, color, symbol_size)
                 
                 if success:
-                    with open(output_path, 'rb') as video:
-                        bot.send_video(call.message.chat.id, video)
+                    if os.path.exists(output_path):
+                        with open(output_path, 'rb') as video:
+                            file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
+                            if file_size_mb > 50:
+                                bot.send_message(call.message.chat.id, "Ошибка: файл слишком большой (>50 МБ).")
+                            else:
+                                send_video_with_retry(call.message.chat.id, video)
+                        os.remove(output_path)
+                    else:
+                        bot.send_message(call.message.chat.id, "Ошибка: файл вывода не найден.")
                     os.remove(input_path)
-                    os.remove(output_path)
                 else:
                     bot.send_message(call.message.chat.id, f"Ошибка: {error or 'не удалось обработать'}.")
             
@@ -265,10 +296,12 @@ def handle_choice(call):
                 del file_storage[message_id]
                 
     except Exception as e:
+        logger.error(f"Error: {str(e)}")
         bot.send_message(call.message.chat.id, f"Произошла ошибка: {str(e)}")
 
 @app.route('/' + TOKEN, methods=['POST'])
 def get_message():
+    logger.info("Received POST from Telegram")
     json_string = request.get_data().decode('utf-8')
     update = telebot.types.Update.de_json(json_string)
     bot.process_new_updates([update])
@@ -276,9 +309,12 @@ def get_message():
 
 @app.route('/')
 def webhook():
+    logger.info("Setting webhook")
     bot.remove_webhook()
     bot.set_webhook(url='https://asciivideobot.onrender.com/' + TOKEN)
+    logger.info("Webhook set")
     return "Webhook set", 200
 
 if __name__ == "__main__":
+    logger.info("Starting Flask app")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
